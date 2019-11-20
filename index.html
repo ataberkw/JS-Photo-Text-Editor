@@ -1,0 +1,171 @@
+<html>
+
+<head>
+
+</head>
+
+<body>
+      <canvas id="canvas">
+            No canvas support.
+      </canvas>
+
+<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+<script>
+      var canvas = document.getElementById("canvas");
+      var ctx = canvas.getContext("2d");
+
+      var image = new Image();
+      loadImg();
+
+      var startX, startY, endX, endY, selecting;
+      var rects = [];
+
+      ctx.font = "30px Arial";
+      ctx.fillText("Hello World", 10, 50);
+
+      function createRect(name, sx, sy, ex, ey) {
+            var _sx = sx, _sy = sy, _ex = ex, _ey = ey
+            var endXIsLower = ex < sx
+            var endYIsLower = ey < sy
+            if (endXIsLower) {
+                  _sx = ex
+                  _ex = sx
+            }
+            if (endYIsLower) {
+                  _sy = ey
+                  _ey = sy
+            }
+            return { name: name, content: '', rect: { sx: _sx, sy: _sy, ex: _ex, ey: _ey } }
+      }
+
+      $("#canvas").mousedown(function (e) {
+            var parentOffset = $(this).offset();
+            var relX = e.pageX - parentOffset.left;
+            var relY = e.pageY - parentOffset.top;
+            startX = relX;
+            startY = relY
+            selecting = true
+      });
+
+      $('#canvas').mouseup(function (e) {
+            var parentOffset = $(this).offset();
+            var relX = e.pageX - parentOffset.left;
+            var relY = e.pageY - parentOffset.top;
+            endX = relX;
+            endY = relY;
+            selecting = false
+            if (relX != startX && relY != startY) {
+                  rectDone(startX, startY, relX, relY);
+            }
+      })
+
+      $('#canvas').mousemove(function (e) {
+            //console.log(e)
+            var parentOffset = $(this).offset();
+            var relX = e.pageX - parentOffset.left;
+            var relY = e.pageY - parentOffset.top;
+            if (selecting) {
+                  redraw()
+                  var _width = relX - startX
+                  var _height = relY - startY;
+                  ctx.beginPath();
+                  ctx.strokeStyle = 'gray'
+                  ctx.rect(startX, startY, _width, _height);
+                  console.log(startX + ' ' + startY + ' ' + _width + ' ' + _height)
+                  ctx.stroke();
+            }
+      })
+
+      $('#canvas').on('dblclick', (ev) => {
+            var parentOffset = $('#' + $(ev.target).attr('id')).offset()
+            var relX = ev.clientX - parentOffset.left;
+            var relY = ev.clientY - parentOffset.top;
+            rects.forEach(e => {
+                  var rect = e.rect
+                  console.log(rect)
+                  if (relX > rect.sx && relX < rect.ex && relY > rect.sy && relY < rect.ey) {
+                        selectRect(e.name);
+                  }
+            })
+      })
+
+      $('#select_img').on('dragstart', function (e) {
+            return false;
+      });
+
+      function selectRect(name) {
+            rects.forEach(rect => {
+                  if (rect.name == name) {
+                        var content = prompt('Enter the content')
+                        rect.content = content
+                  }
+            })
+            redraw();
+      }
+
+      function rectDone(sx, sy, ex, ey) {
+            ctx.beginPath();
+            ctx.rect(Math.min(sx, ex), Math.min(sy, ey), Math.abs(sx - ex), Math.abs(sy - ey));
+            ctx.strokeStyle = 'black'
+            ctx.stroke();
+            let _areaName = prompt('Name of area');
+            rects.push(createRect(_areaName, sx, sy, ex, ey))
+            redraw();
+
+      }
+
+      function redraw() {
+            drawImg();
+            rects.forEach((e) => drawRect(e))
+      }
+
+      function getTextBounds(font) {
+            var text = $('<span>TT</span>').css({ fontFamily: font })
+            var block = $('<div style="display:inline-block; width:1px; height:0px;"></div>')
+            var div = $('<div></div>')
+            div.append(text, block)
+
+            $('body').append(div)
+
+            try {
+                  var bounds = {}
+                  block.css({ verticalAlign: 'bottom' })
+                  bounds.height = block.offset().top - text.offset().top
+                  return bounds
+            } finally {
+                  div.remove()
+            }
+            return {}
+      }
+
+      function drawRect(r) {
+            var _rect = r.rect
+            var content = r.content
+            ctx.beginPath();
+            ctx.rect(Math.min(_rect.sx, _rect.ex), Math.min(_rect.sy, _rect.ey), Math.abs(_rect.sx - _rect.ex), Math.abs(_rect.sy - _rect.ey));
+            ctx.strokeStyle = 'black'
+            ctx.stroke();
+            var font = "20px Arial";
+            ctx.font = font;
+            console.log(getTextBounds(font).height);
+            ctx.fillText(r.content, _rect.sx, _rect.sy + getTextBounds(font).height);
+      }
+
+      function drawImg() {
+            ctx.drawImage(image, 0, 0);
+      }
+
+      function loadImg() {
+            image.src = 'photo.jpg';
+            image.onload = function (e) {
+                  var img = e.path[0];
+                  var width = img.width;
+                  var height = img.height;
+                  canvas.width = width;
+                  canvas.height = height;
+                  redraw()
+            }
+      }
+</script>
+</body>
+</html>
