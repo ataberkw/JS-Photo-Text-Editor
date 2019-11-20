@@ -3,169 +3,336 @@
 <head>
 
 </head>
+<style>
+      body {
+            margin: 0px;
+      }
+
+      #rectConf>table {
+            background: #fff;
+            padding: 4px;
+            border-radius: 8px;
+      }
+</style>
 
 <body>
+      <div id="rectConf" style="position:absolute;background:#00000080;width:100%;height:100%;display:none;">
+            <table>
+                  <tr>
+                        <th>
+                              Box Name:
+                        </th>
+                        <th>
+                              <input id='in_name'></input>
+                        </th>
+                  </tr>
+                  <tr>
+                        <th>
+                              Content:
+                        </th>
+                        <th>
+                              <input id='in_content'></input>
+                        </th>
+                  </tr>
+                  <tr>
+                        <th>
+                              Font Size:
+                        </th>
+                        <th>
+                              <input id='in_f_size'></input>
+                        </th>
+                  </tr>
+                  <tr>
+                        <th>
+                              Font Color:
+                        </th>
+                        <th>
+                              <input id='in_f_color'></input>
+                        </th>
+                  </tr>
+                  <tr>
+                        <th style='text-align: right;'>
+                              <button onclick="deleteSelectedRect()">DELETE</button>
+                        </th>
+                        <th style='text-align: right;'>
+                              <button onclick="closeRectConf()">OK</button>
+                        </th>
+                  </tr>
+            </table>
+      </div>
       <canvas id="canvas">
             No canvas support.
       </canvas>
+      <button href="" onclick="downloadCanvas(this)">Download</button>
 
-<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-<script>
-      var canvas = document.getElementById("canvas");
-      var ctx = canvas.getContext("2d");
+      <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+      <script>
+            var canvas = document.getElementById("canvas");
+            var ctx = canvas.getContext("2d");
 
-      var image = new Image();
-      loadImg();
+            const CONTENT_FONT_SIZE = "20"
+            const CONTENT_FONT_COLOR = "black"
 
-      var startX, startY, endX, endY, selecting;
-      var rects = [];
+            var nameMarginBottom = 4;
 
-      ctx.font = "30px Arial";
-      ctx.fillText("Hello World", 10, 50);
+            var image = new Image();
+            loadImg();
 
-      function createRect(name, sx, sy, ex, ey) {
-            var _sx = sx, _sy = sy, _ex = ex, _ey = ey
-            var endXIsLower = ex < sx
-            var endYIsLower = ey < sy
-            if (endXIsLower) {
-                  _sx = ex
-                  _ex = sx
+            var startX, startY, endX, endY, selecting;
+            var rects = [];
+            var selectedRect;
+            var isDownloading = false;
+
+            ctx.font = "30px Arial";
+            ctx.fillText("Hello World", 10, 50);
+
+            function createRect(name, sx, sy, ex, ey) {
+                  var _sx = sx, _sy = sy, _ex = ex, _ey = ey
+                  var endXIsLower = ex < sx
+                  var endYIsLower = ey < sy
+                  if (endXIsLower) {
+                        _sx = ex
+                        _ex = sx
+                  }
+                  if (endYIsLower) {
+                        _sy = ey
+                        _ey = sy
+                  }
+                  return { name: name, content: '', rect: { sx: _sx, sy: _sy, ex: _ex, ey: _ey }, /*fontSize, fontColor*/ }
             }
-            if (endYIsLower) {
-                  _sy = ey
-                  _ey = sy
+
+            $("#canvas").mousedown(function (e) {
+                  var parentOffset = $(this).offset();
+                  var relX = e.pageX - parentOffset.left;
+                  var relY = e.pageY - parentOffset.top;
+                  startX = relX;
+                  startY = relY
+                  selecting = true
+            });
+
+            $('#canvas').mouseup(function (e) {
+                  var parentOffset = $(this).offset();
+                  var relX = e.pageX - parentOffset.left;
+                  var relY = e.pageY - parentOffset.top;
+                  endX = relX;
+                  endY = relY;
+                  selecting = false
+                  if (relX != startX && relY != startY) {
+                        rectDone(startX, startY, relX, relY);
+                  }
+            })
+
+            $('#canvas').mousemove(function (e) {
+                  //console.log(e)
+                  var parentOffset = $(this).offset();
+                  var relX = e.pageX - parentOffset.left;
+                  var relY = e.pageY - parentOffset.top;
+                  if (selecting) {
+                        redraw()
+                        var _width = relX - startX
+                        var _height = relY - startY;
+                        ctx.beginPath();
+                        ctx.strokeStyle = 'gray'
+                        ctx.rect(startX, startY, _width, _height);
+                        console.log(startX + ' ' + startY + ' ' + _width + ' ' + _height)
+                        ctx.stroke();
+                  }
+            })
+
+            $('#canvas').on('dblclick', (ev) => {
+                  var parentOffset = $('#' + $(ev.target).attr('id')).offset()
+                  var relX = ev.clientX - parentOffset.left;
+                  var relY = ev.clientY - parentOffset.top;
+                  for (const index in rects) {
+                        var rect = rects[index]
+                        var rectBounds = rect.rect
+                        if (relX > rectBounds.sx && relX < rectBounds.ex && relY > rectBounds.sy && relY < rectBounds.ey) {
+                              selectRect(index);
+                        }
+                  }
+            })
+
+            $('#select_img').on('dragstart', function (e) {
+                  return false;
+            });
+
+            $('#in_content').on('input', () => updateRectConf());
+            $('#in_f_size').on('input', () => updateRectConf());
+            $('#in_f_color').on('input', () => updateRectConf());
+            $('#in_name').on('input', () => updateRectConf());
+
+            function selectRect(index) {
+                  selectedRect = index;
+                  openRectConf(index);
+                  redraw();
             }
-            return { name: name, content: '', rect: { sx: _sx, sy: _sy, ex: _ex, ey: _ey } }
-      }
 
-      $("#canvas").mousedown(function (e) {
-            var parentOffset = $(this).offset();
-            var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top;
-            startX = relX;
-            startY = relY
-            selecting = true
-      });
-
-      $('#canvas').mouseup(function (e) {
-            var parentOffset = $(this).offset();
-            var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top;
-            endX = relX;
-            endY = relY;
-            selecting = false
-            if (relX != startX && relY != startY) {
-                  rectDone(startX, startY, relX, relY);
+            function deselectRect(index) {
+                  selectedRect = -1;
             }
-      })
 
-      $('#canvas').mousemove(function (e) {
-            //console.log(e)
-            var parentOffset = $(this).offset();
-            var relX = e.pageX - parentOffset.left;
-            var relY = e.pageY - parentOffset.top;
-            if (selecting) {
+            function openRectConf(index) {
+                  var rect = rects[index]
+                  $('#rectConf').css('display', 'block')
+                  fillRectConfs(index)
+            }
+
+            function closeRectConf(index) {
+                  $('#rectConf').css('display', 'none')
+                  deselectRect(index)
+            }
+
+            function updateRectConf() {
+                  var rect = rects[selectedRect]
+                  rect.name = $('#in_name').val()
+                  rect.fontSize = $('#in_f_size').val()
+                  rect.fontColor = $('#in_f_color').val()
+                  rect.content = $('#in_content').val()
                   redraw()
-                  var _width = relX - startX
-                  var _height = relY - startY;
+            }
+
+            function deleteSelectedRect() {
+                  rects = rects.filter(function (val, index, array) {
+                        console.log("i:  " + index + " selected " + selectedRect)
+                        return index != selectedRect
+                  })
+                  redraw();
+                  closeRectConf()
+            }
+
+            function downloadCanvas(d) {
+                  isDownloading = true
+                  redraw()
+                  download(canvas, "aaaa.jpg")
+
+                  isDownloading = false
+                  redraw()
+            }
+
+            // START -- Source from:  http://stackoverflow.com/questions/18480474/how-to-save-an-image-from-canvas
+
+            /* Canvas Donwload */
+            function download(canvas, filename) {
+                  /// create an "off-screen" anchor tag
+                  var lnk = document.createElement('a'), e;
+
+                  /// the key here is to set the download attribute of the a tag
+                  lnk.download = filename;
+
+                  /// convert canvas content to data-uri for link. When download
+                  /// attribute is set the content pointed to by link will be
+                  /// pushed as "download" in HTML5 capable browsers
+                  lnk.href = canvas.toDataURL("image/png;base64");
+
+                  /// create a "fake" click-event to trigger the download
+                  if (document.createEvent) {
+                        e = document.createEvent("MouseEvents");
+                        e.initMouseEvent("click", true, true, window,
+                              0, 0, 0, 0, 0, false, false, false,
+                              false, 0, null);
+
+                        lnk.dispatchEvent(e);
+                  } else if (lnk.fireEvent) {
+                        lnk.fireEvent("onclick");
+                  }
+            }
+
+            // END -- Source from:  http://stackoverflow.com/questions/18480474/how-to-save-an-image-from-canvas
+
+
+            function fillRectConfs(index) {
+                  var rect = rects[index]
+                  $('#in_name').val(rect.name)
+                  if (rect.hasOwnProperty('fontSize'))
+                        $('#in_f_size').val(rect.fontSize)
+                  else
+                        $('#in_f_size').val(CONTENT_FONT_SIZE)
+                  if (rect.hasOwnProperty('fontColor'))
+                        $('#in_f_color').val(rect.fontColor)
+                  else
+                        $('#in_f_color').val(CONTENT_FONT_COLOR)
+                  $('#in_content').val(rect.content)
+            }
+
+            function rectDone(sx, sy, ex, ey) {
                   ctx.beginPath();
-                  ctx.strokeStyle = 'gray'
-                  ctx.rect(startX, startY, _width, _height);
-                  console.log(startX + ' ' + startY + ' ' + _width + ' ' + _height)
-                  ctx.stroke();
-            }
-      })
-
-      $('#canvas').on('dblclick', (ev) => {
-            var parentOffset = $('#' + $(ev.target).attr('id')).offset()
-            var relX = ev.clientX - parentOffset.left;
-            var relY = ev.clientY - parentOffset.top;
-            rects.forEach(e => {
-                  var rect = e.rect
-                  console.log(rect)
-                  if (relX > rect.sx && relX < rect.ex && relY > rect.sy && relY < rect.ey) {
-                        selectRect(e.name);
+                  if (!isDownloading) {
+                        ctx.rect(Math.min(sx, ex), Math.min(sy, ey), Math.abs(sx - ex), Math.abs(sy - ey));
+                        ctx.strokeStyle = 'black'
+                        ctx.stroke();
                   }
-            })
-      })
+                  let _areaName = prompt('Name of area');
+                  rects.push(createRect(_areaName, sx, sy, ex, ey))
+                  redraw();
 
-      $('#select_img').on('dragstart', function (e) {
-            return false;
-      });
+            }
 
-      function selectRect(name) {
-            rects.forEach(rect => {
-                  if (rect.name == name) {
-                        var content = prompt('Enter the content')
-                        rect.content = content
+            function redraw() {
+                  drawImg();
+                  rects.forEach((e) => drawRect(e))
+            }
+
+            function drawRect(r) {
+                  var _rect = r.rect
+                  var content = r.content
+                  var rWidth = _rect.sx - _rect.ex
+                  var rHeight = _rect.sy - _rect.ey
+
+                  if (!isDownloading) {
+                        ctx.beginPath();
+                        ctx.rect(Math.min(_rect.sx, _rect.ex), Math.min(_rect.sy, _rect.ey), Math.abs(_rect.sx - _rect.ex), Math.abs(_rect.sy - _rect.ey));
+                        ctx.strokeStyle = 'black'
+                        ctx.stroke()
                   }
-            })
-            redraw();
-      }
 
-      function rectDone(sx, sy, ex, ey) {
-            ctx.beginPath();
-            ctx.rect(Math.min(sx, ex), Math.min(sy, ey), Math.abs(sx - ex), Math.abs(sy - ey));
-            ctx.strokeStyle = 'black'
-            ctx.stroke();
-            let _areaName = prompt('Name of area');
-            rects.push(createRect(_areaName, sx, sy, ex, ey))
-            redraw();
+                  var contentFont = ""
+                  if (r.hasOwnProperty('fontSize')) {
+                        contentFont = r.fontSize + "px ";
+                  } else {
+                        contentFont = CONTENT_FONT_SIZE + "px "
+                  }
+                  contentFont += "Arial"
+                  if (r.hasOwnProperty('fontColor')) {
+                        ctx.fillStyle = r.fontColor
+                  } else {
+                        ctx.fillStyle = CONTENT_FONT_COLOR
+                  }
 
-      }
+                  var textMetrics = ctx.measureText(r.content);
+                  //var height = textMetrics.actualBoundingBoxAscent - textMetrics.actualBoundingBoxDescent
+                  var width = textMetrics.width
+                  console.log(width)
+                  ctx.font = contentFont;
+                  ctx.textAlign = "center"
+                  ctx.textBaseline = "middle"
+                  ctx.fillText(r.content, _rect.sx - (rWidth / 2), _rect.sy - (rHeight / 2));
 
-      function redraw() {
-            drawImg();
-            rects.forEach((e) => drawRect(e))
-      }
-
-      function getTextBounds(font) {
-            var text = $('<span>TT</span>').css({ fontFamily: font })
-            var block = $('<div style="display:inline-block; width:1px; height:0px;"></div>')
-            var div = $('<div></div>')
-            div.append(text, block)
-
-            $('body').append(div)
-
-            try {
-                  var bounds = {}
-                  block.css({ verticalAlign: 'bottom' })
-                  bounds.height = block.offset().top - text.offset().top
-                  return bounds
-            } finally {
-                  div.remove()
+                  if (!isDownloading) {
+                        var nameFont = "12px Arial"
+                        ctx.fillStyle = "black"
+                        ctx.textAlign = "left"
+                        ctx.textBaseline = "bottom"
+                        ctx.font = nameFont;
+                        ctx.fillText(r.name, _rect.sx, _rect.sy - nameMarginBottom);
+                  }
             }
-            return {}
-      }
 
-      function drawRect(r) {
-            var _rect = r.rect
-            var content = r.content
-            ctx.beginPath();
-            ctx.rect(Math.min(_rect.sx, _rect.ex), Math.min(_rect.sy, _rect.ey), Math.abs(_rect.sx - _rect.ex), Math.abs(_rect.sy - _rect.ey));
-            ctx.strokeStyle = 'black'
-            ctx.stroke();
-            var font = "20px Arial";
-            ctx.font = font;
-            console.log(getTextBounds(font).height);
-            ctx.fillText(r.content, _rect.sx, _rect.sy + getTextBounds(font).height);
-      }
-
-      function drawImg() {
-            ctx.drawImage(image, 0, 0);
-      }
-
-      function loadImg() {
-            image.src = 'photo.jpg';
-            image.onload = function (e) {
-                  var img = e.path[0];
-                  var width = img.width;
-                  var height = img.height;
-                  canvas.width = width;
-                  canvas.height = height;
-                  redraw()
+            function drawImg() {
+                  ctx.drawImage(image, 0, 0);
             }
-      }
-</script>
+
+            function loadImg() {
+                  image.src = 'cert2.jpg';
+                  image.onload = function (e) {
+                        var img = e.path[0];
+                        var width = img.width;
+                        var height = img.height;
+                        canvas.width = width;
+                        canvas.height = height;
+                        redraw()
+                  }
+            }
+      </script>
 </body>
+
 </html>
