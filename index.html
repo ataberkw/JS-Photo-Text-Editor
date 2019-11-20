@@ -63,7 +63,7 @@
       <canvas id="canvas">
             No canvas support.
       </canvas>
-      <button href="" onclick="downloadCanvas(this)">Download</button>
+      <button href="" onclick="downloadCanvas()">Download</button>
 
       <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
       <script>
@@ -200,7 +200,7 @@
                   closeRectConf()
             }
 
-            function downloadCanvas(d) {
+            function downloadCanvas() {
                   isDownloading = true
                   redraw()
                   download(canvas, "aaaa.jpg")
