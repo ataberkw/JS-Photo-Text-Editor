@@ -1,2 +1,2 @@
 # JS-Photo-Text-Editor
-An editor that you can type something on a photo
+A dynamic editor that you can type something on a photo
